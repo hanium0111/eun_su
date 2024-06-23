@@ -1,0 +1,59 @@
+/* index.css 예제 스타일 */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  
+  h1 {
+    color: #333;
+  }
+  
+  a {
+    color: #007BFF;
+  }
+  
+  a:hover {
+    color: #0056b3;
+  }
+  
+  .profile-image {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    margin-bottom: 20px;
+  }
+  
+  .prompt-container {
+    margin-top: 20px;
+  }
+  
+  .prompt-container label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  
+  .prompt-container input,
+  .prompt-container textarea {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .prompt-container button {
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .prompt-container button:hover {
+    background-color: #0056b3;
+  }
+  
