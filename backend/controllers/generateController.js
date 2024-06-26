@@ -19,11 +19,11 @@ exports.handleChatInput = async (req, res) => { // handleChatInput이라는 비�
       // 템플릿 없이 웹사이트 생성 로직 실행
       const srs = await generateService.generateSRS({ websiteType, features, mood, content });
       const code = await generateService.generateCode({ srs, websiteType, features });
-      const result = await generateService.createPage(code, pageName,useremail);
+      const result = await generateService.createPage({ websiteType, features, mood, content },code, pageName,useremail);
       res.send(result);
     } else {
       // 선택된 템플릿을 파일 시스템에 복사합니다.
-      const copiedTemplatePath = await generateService.copyTemplate(templateSelection.analysis,useremail);
+      const copiedTemplatePath = await generateService.copyTemplate({ websiteType, features, mood, content },templateSelection.analysis,useremail,pageName);
       // GPT에게 복사된 템플릿을 수정하도록 요청합니다.
       const modifiedTemplateContent = await generateService.modifyTemplate(copiedTemplatePath, { websiteType, features, mood, content });
       res.send(modifiedTemplateContent);

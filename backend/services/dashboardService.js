@@ -1,8 +1,17 @@
 // services/dashboardService.js
 const Dashboard = require('../models/dashboard');
 
-exports.createDashboard = async (data) => {
-  return await Dashboard.create(data);
+
+// 데이터베이스에 저장하는 함수
+exports.saveDashboard = async (projectData) => {
+  try {
+    const newProject = await Dashboard.create(projectData);
+    console.log('Project saved successfully:', newProject);
+    return newProject;
+  } catch (error) {
+    console.error('Error saving project to database:', error);
+    throw new Error('Failed to save project to database.');
+  }
 };
 
 
@@ -31,6 +40,19 @@ exports.updateDashboardName = async (id, newName) => {
   }
   return dashboard.projectPath;
 };
+
+ exports.getDashboardsByProjectPath = async (projectPath) => {
+  const dashboard = await Dashboard.findOne({
+    where: { projectPath: projectPath },
+    attributes: ['imagePath', 'projectName'],
+  });
+  if (!dashboard) {
+    throw new Error('No dashboards found for the given project path');
+  }
+  return dashboard; // findOne은 객체를 반환합니다
+};
+
+
 
 
 // 다른 CRUD 함수들 추가 가능

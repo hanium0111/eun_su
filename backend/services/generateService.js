@@ -4,10 +4,14 @@ const axios = require('axios'); // axios 모듈을 불러옵니다.
 const fs = require('fs'); // fs 모듈을 불러옵니다.
 const path = require('path'); // path 모듈을 불러옵니다.
 const templateService = require('./templateService'); // templateService 모듈을 불러옵니다.
+const dashboardService = require('./dashboardService'); // dashboardService 모듈을 불러옵니다.
 
 const extractKeywords = require('../utils/extract-keywords');
 const getUnsplashImage = require('../utils/unsplash');
 const createPage = require('../utils/create-page');
+
+// 스크린샷 라이브러리
+const puppeteer = require('puppeteer');
 
 exports.getTemplates = async () => {
   // templateService에서 모든 템플릿을 가져옵니다.
@@ -73,7 +77,7 @@ exports.selectTemplate = async (input, templates) => {
   }
 };
 
-exports.copyTemplate = async (analysis, userEmail) => {
+exports.copyTemplate = async (input, analysis, userEmail ,pageName) => {
   let chosenTemplateId;
 
   // analysis가 문자열인지 확인
@@ -108,7 +112,7 @@ exports.copyTemplate = async (analysis, userEmail) => {
 
   // 새로운 디렉터리 경로를 설정합니다.
   const timestamp = Date.now(); // 현재 타임스탬프를 사용하여 고유한 이름 생성
-  const newTemplateDirName = `${chosenTemplate.templateName}_${userEmail}_${timestamp}`;
+  const newTemplateDirName = `${pageName}_${chosenTemplate.templateName}_${userEmail}_${timestamp}`;
   const newTemplateDir = path.join(__dirname, '../../copied_userTemplates', newTemplateDirName);
    
   // 디렉터리를 복사합니다.
@@ -119,6 +123,30 @@ exports.copyTemplate = async (analysis, userEmail) => {
     console.error("Error copying template:", err);
     throw new Error('Failed to copy template.');
   }
+  console.log("첫 번 째 스크린샷");
+  // 로컬 서버 URL 설정
+  const localServerUrl = `http://localhost:3000/copied_userTemplates/${newTemplateDirName}/index.html`;
+
+  // 스크린샷 파일 경로 설정
+  const screenshotsDir = path.join(__dirname, "../../page_screenshots");
+  const screenshotName=`${pageName}_${chosenTemplate.templateName}_${userEmail}`;
+  const screenshotPath = path.join(screenshotsDir, `${screenshotName}.png`);
+
+  // 스크린샷 생성
+  await captureScreenshot(localServerUrl, screenshotPath);
+
+  const projectData = {
+    ProjectName: newTemplateDirName,
+    projectPath: newTemplateDir,
+    imagePath: screenshotPath,
+    email: userEmail,
+    websiteType: input.websiteType || '',
+    features: input.features || '',
+    mood: input.mood || '',
+    content: input.content || ''
+  };
+  
+  dashboardService.saveDashboard(projectData);
 
   // 복사된 디렉터리 경로를 반환합니다.
   return newTemplateDir;
@@ -128,6 +156,8 @@ exports.modifyTemplate = async (templateDir, input) => {
   // 템플릿 디렉터리 내의 모든 HTML 파일들을 읽어옵니다.
   const htmlFiles = fs.readdirSync(templateDir).filter(file => file.endsWith('.html'));
   let modifiedHtmlFiles = [];
+  let indexHtmlModified = false; // 스크린샷을 위해 index.html 파일이 수정되었는지 확인하는 플래그
+
 
   // 각 HTML 파일의 내용을 GPT에게 수정 요청합니다.
   for (const htmlFile of htmlFiles) {
@@ -188,12 +218,36 @@ exports.modifyTemplate = async (templateDir, input) => {
 
       // 수정된 내용을 HTML 파일에 저장합니다.
       fs.writeFileSync(htmlFilePath, modifiedHtmlContent, 'utf-8');
+      
+
+      // index.html 파일이 수정된 경우 플래그를 설정합니다.
+      if (htmlFile === 'index.html') {
+        indexHtmlModified = true;
+      }
 
       modifiedHtmlFiles.push({ htmlFilePath, modifiedHtmlContent });
     } catch (error) {
       console.error("Error calling GPT-4 API:", error.response ? error.response.data : error.message);
       throw new Error('Failed to communicate with GPT-4 API.');
     }
+  }
+
+  console.log("indexHtmlModified:",indexHtmlModified);
+  // index.html 파일이 수정된 경우 스크린샷을 찍습니다.
+  if (indexHtmlModified) {
+    console.log("templateDir:",templateDir);
+     // 생성된 템플릿 디렉터리는 db에서 가져와야됨 == projectPath를 기반으로 db의 projectName을 가져와야됨
+    const dashboardDetails = await dashboardService.getDashboardsByProjectPath(templateDir);
+
+    console.log("dashboardDetails:",dashboardDetails);
+    const projectName = dashboardDetails.dataValues.projectName;
+    console.log("db에서 가져온 템플릿이름:",projectName);
+    // 로컬 서버 URL 설정
+    const localServerUrl = `http://localhost:3000/copied_userTemplates/${projectName}/index.html`;
+    // 경로는 db에서 가져와야됨 == projectPath를 기반으로 db의 imagePath를 가져와야됨
+    const screenshotPath = dashboardDetails.dataValues.imagePath;
+    console.log("스크린샷경로:",screenshotPath);
+    await captureScreenshot(localServerUrl, screenshotPath);
   }
 
   // 수정된 HTML 파일 경로를 반환합니다.
@@ -329,11 +383,53 @@ exports.generateCode = async ({ srs, websiteType, features }) => {
 };
 
 // createPage 함수 호출
-exports.createPage = async ( code, pageName, userEmail ) => {
+exports.createPage = async ( input, code, pageName, userEmail ) => {
+  
    // 현재 시간을 문자열로 변환
    const currentTime = new Date().toISOString().replace(/[:.]/g, "-");
    // pageName에 userEmail과 currentTime 추가
    const newPageName = `${pageName}_${userEmail}_${currentTime}`;
+
+   // 파일 경로 설정
+  const pagesDir = path.join(__dirname, "../../created_userPages");
+  const pagePath = path.join(pagesDir, `${newPageName}.js`);
+  await createPage({ code, pagePath: pagePath });
+
+  console.log("스크린샷 시작"); 
+
+   // 로컬 서버 URL 설정
+   const localServerUrl = `http://localhost:3000/created_userPages/${newPageName}.js`;
+
+   // 스크린샷 파일 경로 설정
+   const screenshotsDir = path.join(__dirname, "../../page_screenshots");
+   const screenshotPath = path.join(screenshotsDir, `${newPageName}.png`);
  
-   return await createPage({ code, pageName: newPageName });
+   // 스크린샷 생성
+   await captureScreenshot(localServerUrl, screenshotPath);
+
+   //데이터 베이스에 저장
+  const projectData = {
+    ProjectName: newPageName,
+    projectPath: pagePath,
+    imagePath: screenshotPath,
+    email: userEmail,
+    websiteType: input.websiteType || '',
+    features: input.features || '',
+    mood: input.mood || '',
+    content: input.content || ''
+  };
+  dashboardService.saveDashboard(projectData);
+
+  return pageName;
 };
+
+
+// 스크린샷 생성 함수
+async function captureScreenshot(url, outputPath) {
+  const decodedUrl = decodeURIComponent(url); // URL 디코딩
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+  await page.goto(decodedUrl, { waitUntil: 'networkidle2' });
+  await page.screenshot({ path: outputPath });
+  await browser.close();
+}

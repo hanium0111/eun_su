@@ -23,17 +23,26 @@ app.use(session({
   cookie: { secure: false } // 프로덕션에서는 true로 설정 (HTTPS)
 }));
 
-
-
 app.use(passport.initialize());
 app.use(passport.session());
 // JSON 및 URL 인코딩된 본문 파싱 미들웨어
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 미들웨어를 사용하여 요청된 URL을 디코딩
+app.use((req, res, next) => {
+  req.url = decodeURIComponent(req.url);
+  next();
+});
+
 // 정적 파일 제공
-app.use('/static', express.static(path.join(__dirname, '../../frontend/public')));
-app.use('/copied_templates', express.static(path.join(__dirname, '../../copied_usertemplates')));
+const copiedTemplatesPath = path.resolve(__dirname, '../../copied_userTemplates');
+const createdPagesPath = path.resolve(__dirname, '../../created_userPages');
+const frontendPath = path.resolve(__dirname, '../../frontend/public');
+
+app.use('/static', express.static(frontendPath));
+app.use('/copied_userTemplates', express.static(copiedTemplatesPath));
+app.use('/created_userPages', express.static(createdPagesPath));
 
 // 라우트 설정
 app.use('/auth', loginRoutes);

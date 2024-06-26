@@ -18,12 +18,13 @@ const Dashboard = sequelize.define('Dashboard', {
   },
   imagePath: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
     unique: true
   },
   description: {
     type: DataTypes.STRING,
-    allowNull: true
+    allowNull: false,
+    defaultValue: "-"
   },
   email: {
     type: DataTypes.STRING,
@@ -45,7 +46,8 @@ const Dashboard = sequelize.define('Dashboard', {
 
   category: {
     type: DataTypes.STRING,
-    allowNull: true
+    allowNull: false,
+    defaultValue: "-"
   },
   websiteType: {
     type: DataTypes.STRING,

@@ -1,11 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 
-async function createPage({ code, pageName}) {
+async function createPage({ code, pagePath}) {
   console.log("createPage함수 진입");
-  // 파일 경로 설정
-  const pagesDir = path.join(__dirname, "../../created_userPage");
-  const pagePath = path.join(pagesDir, `${pageName}.js`);
+  
 
   console.log("pagePath:",pagePath);
   // 데이터가 문자열인지 확인
@@ -40,10 +38,10 @@ ${componentCodeLines.join("\n")}
   try {
     // 페이지 파일 생성
     fs.writeFileSync(pagePath, componentCode);
-    return {pageName};
+    return {pagePath};
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error creating page" });
+    console.error("Error creating page:", error);
+    throw new Error("Error creating page");
   }
 }
 
