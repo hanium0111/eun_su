@@ -1,0 +1,33 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Deploy to AWS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'ap-northeast-2' # 실제 AWS 리전 코드로 변경
+        run: |
+          # Install AWS CLI
+          sudo apt-get update
+          sudo apt-get install -y awscli
+
+          # Deploy each template in copied_userTemplates
+          for dir in copied_userTemplates/*; do
+            if [ -d "$dir" ]; then
+              site_name=$(basename "$dir")
+              aws s3 sync "$dir" "s3://my-actual-s3-hanium0111/$site_name/" --delete # 실제 S3 버킷 이름으로 변경
+              aws cloudfront create-invalidation --distribution-id E1NJD3TCUB3V5C --paths "/$site_name/*" # 실제 CloudFront 배포 ID로 변경
+            fi
+          done
