@@ -1,69 +1,80 @@
-const generateService = require('../services/generateService'); // generatetService 모듈을 불러옵니다.
+const generateService = require('../services/generateService');
+const path = require('path');
 
-
-exports.handleChatInput = async (req, res) => { // handleChatInput이라는 비동기 함수를 정의합니다.
+// 사용자 입력을 처리하여 웹사이트 생성
+exports.handleChatInput = async (req, res, next) => {
   try {
-    // req.body에서 사용자 입력 데이터를 추출합니다.
-    const { websiteType, features, mood, content , pageName } = req.body;
-    const useremail = req.user.email; // req.user.email에서 email을 추출합니다.
-    
-    // generateService에서 모든 템플릿을 가져옵니다.
-    const templates = await generateService.getTemplates();
-    console.log(templates);
-    // 사용자 입력 데이터와 템플릿을 사용하여 어떤 템플릿을 사용할지 결정합니다.
-    const templateSelection = await generateService.selectTemplate({ websiteType, features, mood, content }, templates);
-    console.log("선택된 템플릿: " + JSON.stringify(templateSelection, null, 2));
+    console.log('Controller - handleChatInput called with data:', req.body);
+    const { websiteType, features, mood, content, pageName } = req.body;
+    const useremail = "test@example.com"; // 인증된 사용자의 이메일 대신 임시로 사용
 
-    // 템플릿을 찾지 못한 경우 처리
-    if (templateSelection.analysis == "No appropriate template!") {
-      // 템플릿 없이 웹사이트 생성 로직 실행
+    const templates = await generateService.getTemplates();
+    console.log('Templates retrieved:', templates);
+
+    const templateSelection = await generateService.selectTemplate({ websiteType, features, mood, content }, templates);
+    console.log('Template selected:', templateSelection);
+
+    let generatedPagePath;
+    if (templateSelection.analysis === "No appropriate template!") {
       const srs = await generateService.generateSRS({ websiteType, features, mood, content });
       const code = await generateService.generateCode({ srs, websiteType, features });
-      const result = await generateService.createPage({ websiteType, features, mood, content },code, pageName,useremail);
-      res.send(result);
+      const result = await generateService.createPage({ websiteType, features, mood, content }, code, pageName, useremail);
+      generatedPagePath = result.pagePath;
     } else {
-      // 선택된 템플릿을 파일 시스템에 복사합니다.
-      const copiedTemplatePath = await generateService.copyTemplate({ websiteType, features, mood, content },templateSelection.analysis,useremail,pageName);
-      // GPT에게 복사된 템플릿을 수정하도록 요청합니다.
+      const copiedTemplatePath = await generateService.copyTemplate({ websiteType, features, mood, content }, templateSelection.analysis, useremail, pageName);
       const modifiedTemplateContent = await generateService.modifyTemplate(copiedTemplatePath, { websiteType, features, mood, content });
-      res.send(modifiedTemplateContent);
+      generatedPagePath = copiedTemplatePath;
     }
+
+    if (!generatedPagePath) {
+      throw new Error('Generated page path is undefined.');
+    }
+
+    const relativePageUrl = `/copied_userTemplates/${path.basename(generatedPagePath)}`;
+    res.json({ pageUrl: relativePageUrl });
   } catch (error) {
-    // 에러가 발생하면 500 상태 코드와 에러 메시지를 JSON 형식으로 반환합니다.
-    res.status(500).json({ error: error.message });
+    console.error('Controller - handleChatInput error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
   }
 };
 
-
-
+// 사용자가 제공한 입력 기반으로 SRS 생성
 exports.generateSRS = async (req, res) => {
   try {
+    console.log('Controller - generateSRS called with data:', req.body);
     const { websiteType, features, mood, content } = req.body;
     const srs = await generateService.generateSRS({ websiteType, features, mood, content });
-    console.log("srs:",srs);
     res.status(200).json({ srs });
   } catch (error) {
+    console.error('Controller - generateSRS error:', error);
     res.status(500).json({ error: "Error generating SRS" });
   }
 };
 
+// SRS 기반으로 코드 생성
 exports.generateCode = async (req, res) => {
   try {
+    console.log('Controller - generateCode called with data:', req.body);
     const { srs, websiteType, features } = req.body;
     const code = await generateService.generateCode({ srs, websiteType, features });
-    console.log("generatedCode:",code);
     res.status(200).json({ code });
   } catch (error) {
+    console.error('Controller - generateCode error:', error);
     res.status(500).json({ error: "Error generating code" });
   }
 };
 
+// 생성된 코드 기반으로 페이지 생성
 exports.createPage = async (req, res) => {
   try {
+    console.log('Controller - createPage called with data:', req.body);
     const { code, pageName } = req.body;
     const result = await generateService.createPage({ code, pageName });
     res.status(200).json(result);
   } catch (error) {
+    console.error('Controller - createPage error:', error);
     res.status(500).json({ error: "Error creating page" });
   }
 };

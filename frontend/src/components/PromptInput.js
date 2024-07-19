@@ -8,6 +8,7 @@ function PromptInput() {
   const [mood, setMood] = useState('');
   const [content, setContent] = useState('');
   const [pageName, setPageName] = useState('');
+  const [generatedPageUrl, setGeneratedPageUrl] = useState(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -17,17 +18,18 @@ function PromptInput() {
       features,
       mood,
       content,
-      pageName, // 추가된 페이지 이름
+      pageName,
     };
 
     console.log('Submitting data:', data);
 
-    fetch('/generate/process-requirements', {
+    fetch('http://localhost:5000/generate/process-requirements', { // 백엔드의 전체 경로 사용
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
+      credentials: 'include', // 세션 쿠키를 포함하여 요청
     })
     .then((response) => {
       if (!response.ok) {
@@ -37,7 +39,7 @@ function PromptInput() {
     })
     .then((data) => {
       console.log('Response data:', data);
-      setPageName(data.pageName); // 서버 응답에서 페이지 이름을 설정
+      setGeneratedPageUrl(data.pageUrl);
       alert('요구사항이 성공적으로 제출되었습니다!');
     })
     .catch((error) => {
@@ -109,12 +111,12 @@ function PromptInput() {
             </Button>
           </VStack>
         </form>
-        {pageName && (
+        {generatedPageUrl && (
           <Box>
             <Text fontSize="lg" fontWeight="medium">
               페이지가 생성되었습니다:
             </Text>
-            <Link href={`/${pageName}`} color="blue.500">
+            <Link href={`http://localhost:5000${generatedPageUrl}`} color="blue.500" isExternal>
               여기를 클릭하여 새 페이지를 확인하세요
             </Link>
           </Box>

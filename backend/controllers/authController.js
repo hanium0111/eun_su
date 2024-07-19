@@ -1,7 +1,6 @@
 const passport = require('passport');
 const authService = require('../services/authService');
 
-
 exports.googleAuth = passport.authenticate('google', { scope: ['profile', 'email'] });
 
 exports.googleAuthCallback = passport.authenticate('google', { failureRedirect: '/' });
@@ -24,9 +23,6 @@ exports.authCallbackRedirect = async (req, res) => {
     res.redirect('/');
   }
 };
-
-
-
 
 exports.getUser = (req, res) => {
   if (req.isAuthenticated()) {
